@@ -159,12 +159,14 @@
 </main>
 
 <footer>
-  Valori stimati a partire dai NAV pubblici (Morningstar) e dai versamenti inseriti in
-  <span class="mono">data/versamenti.csv</span>. Le quote sono calcolate al NAV del primo giorno
-  di valorizzazione successivo al versamento e non tengono conto di commissioni di sottoscrizione
-  o gestione applicate da Banca Mediolanum: per il controvalore ufficiale fa fede l'app/estratto
-  Mediolanum. I NAV sono valorizzati una volta al giorno: non esiste una quotazione intraday
-  per questi fondi.
+  Valori stimati a partire dai NAV pubblici e dai versamenti inseriti in
+  <span class="mono">data/versamenti.csv</span>. Il totale versato usa la colonna
+  <span class="mono">importo</span> (lordo); le quote sono calcolate con la colonna
+  <span class="mono">netto</span> (se presente) al NAV del primo giorno di valorizzazione
+  successivo al versamento, oppure prese tali e quali dalla colonna
+  <span class="mono">quote</span> se compilata. Per il controvalore ufficiale fa fede
+  l'app/estratto Mediolanum. I NAV sono valorizzati una volta al giorno: non esiste
+  una quotazione intraday per questi fondi.
 </footer>
 
 <script>
@@ -221,9 +223,10 @@ function calcolaFondi(){
     const vs = versamenti.filter(v=>v.isin===isin);
     let quote = 0, versato = 0;
     for(const v of vs){
-      versato += v.imp;
+      versato += v.imp;                      // lordo: il "totale versato" alla Mediolanum
+      if(v.quote != null){ quote += v.quote; continue; }
       const nav = navDaData(isin, v.d);
-      if(nav) quote += v.imp / nav;
+      if(nav) quote += (v.netto ?? v.imp) / nav;   // quote comprate col netto
     }
     const s = serie[isin] || [];
     const last = s.length ? s[s.length-1] : null;
@@ -346,8 +349,9 @@ function disegnaChartPtf(){
       for(const vs of versamenti){
         if(vs.isin!==isin || vs.d>d) continue;
         ve += vs.imp;
+        if(vs.quote != null){ q += vs.quote; continue; }
         const nav = navDaData(isin, vs.d);
-        if(nav) q += vs.imp/nav;
+        if(nav) q += (vs.netto ?? vs.imp)/nav;
       }
       const navOggi = navFinoA(isin, d);
       if(navOggi) v += q*navOggi;
@@ -430,8 +434,12 @@ async function init(){
       serie[r.isin].push({ d:r.date, v:parseFloat(r.nav) });
     }
     for(const isin in serie) serie[isin].sort((a,b)=>a.d<b.d?-1:1);
-    versamenti = versRows.map(r=>({ d:r.data, isin:r.isin, imp:parseFloat(r.importo) }))
-                         .filter(v=>v.isin && !isNaN(v.imp));
+    versamenti = versRows.map(r=>({
+        d:r.data, isin:r.isin,
+        imp:   parseFloat(r.importo),
+        netto: r.netto && !isNaN(parseFloat(r.netto)) ? parseFloat(r.netto) : null,
+        quote: r.quote && !isNaN(parseFloat(r.quote)) ? parseFloat(r.quote) : null,
+      })).filter(v=>v.isin && !isNaN(v.imp));
 
     if(!navRows.length){
       box.style.display = "block"; nascondi(); return;
