@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fondi Mediolanum · Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#0E2A47;
+    --paper:#F5F6F4;
+    --card:#FFFFFF;
+    --line:#E2E5E9;
+    --muted:#5D6B7A;
+    --gain:#0E7C4A;
+    --loss:#C7362B;
+    --energy:#E0A020;
+    --financial:#2563EB;
+    --healthcare:#0F9D8F;
+    --industrials:#64748B;
+    --technology:#7C5CD6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Archivo',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+
+  header{
+    background:var(--ink);
+    color:#fff;
+    padding:28px clamp(16px,4vw,48px) 24px;
+  }
+  header .eyebrow{
+    font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:#9FB3C8;font-weight:600;margin-bottom:6px;
+  }
+  header h1{font-size:clamp(20px,3vw,26px);font-weight:700;margin-bottom:18px}
+  .totali{
+    display:flex;flex-wrap:wrap;gap:8px 36px;align-items:baseline;
+  }
+  .totali .voce .lbl{font-size:12px;color:#9FB3C8;letter-spacing:.06em;text-transform:uppercase}
+  .totali .voce .val{font-family:'IBM Plex Mono',monospace;font-size:clamp(18px,2.6vw,26px);font-weight:600}
+  .totali .voce .val.big{font-size:clamp(24px,3.4vw,34px)}
+  .pos{color:#5FD39B}.neg{color:#FF8A7A}
+  main{padding:24px clamp(16px,4vw,48px) 48px;max-width:1180px;margin:0 auto}
+
+  section{margin-top:28px}
+  h2{font-size:15px;font-weight:700;letter-spacing:.02em;margin-bottom:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;
+    border:1px solid var(--line);border-radius:999px;
+    padding:6px 12px;font-size:13px;font-weight:500;cursor:pointer;
+    background:#fff;color:var(--ink);transition:opacity .15s;
+  }
+  .chip .dot{width:10px;height:10px;border-radius:50%}
+  .chip.off{opacity:.35}
+  .periodi{display:flex;gap:4px;margin-left:auto}
+  .periodi button{
+    border:none;background:transparent;color:var(--muted);
+    font:600 12px 'Archivo',sans-serif;padding:6px 10px;border-radius:6px;cursor:pointer;
+  }
+  .periodi button.att{background:var(--ink);color:#fff}
+  .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px}
+  .chartbox{position:relative;height:340px}
+  .chartbox.small{height:240px}
+
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{
+    text-align:right;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);font-weight:600;padding:0 10px 10px;border-bottom:1px solid var(--line);
+  }
+  th:first-child{text-align:left;padding-left:0}
+  td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  td:first-child{text-align:left;padding-left:0;white-space:normal}
+  tr:last-child td{border-bottom:none}
+  tr.tot td{font-weight:600;border-top:2px solid var(--ink);border-bottom:none}
+  .fname{display:flex;align-items:center;gap:9px;font-weight:600}
+  .fname .dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .fname small{display:block;font-weight:400;color:var(--muted)}
+  td .var{font-weight:600}
+  td .var.up{color:var(--gain)}
+  td .var.down{color:var(--loss)}
+
+  .avviso{
+    background:#FFF7E6;border:1px solid #EAD9A8;border-radius:10px;
+    padding:16px 18px;font-size:14px;line-height:1.55;margin-top:24px;
+  }
+  footer{
+    max-width:1180px;margin:0 auto;padding:0 clamp(16px,4vw,48px) 40px;
+    font-size:12px;color:var(--muted);line-height:1.6;
+  }
+  @media (max-width:640px){
+    .chartbox{height:260px}
+    th:nth-child(3),td:nth-child(3){display:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Portafoglio · Mediolanum Best Brands / Challenge</div>
+  <h1>Monitor fondi — lungo termine</h1>
+  <div class="totali" id="totali">
+    <div class="voce"><div class="lbl">Controvalore stimato</div><div class="val big" id="t-ctv">—</div></div>
+    <div class="voce"><div class="lbl">Totale versato</div><div class="val" id="t-vers">—</div></div>
+    <div class="voce"><div class="lbl">Var. patrimoniale</div><div class="val" id="t-var">—</div></div>
+    <div class="voce"><div class="lbl">Ultimo NAV</div><div class="val" id="t-data" style="font-size:15px">—</div></div>
+  </div>
+</header>
+
+<main>
+  <div class="avviso" id="avviso-vuoto" style="display:none">
+    <strong>Nessun dato NAV ancora presente.</strong> Esegui una volta
+    <span class="mono">python fetch_nav.py</span> (in locale o dalla tab
+    <em>Actions → Aggiorna NAV fondi → Run workflow</em> su GitHub) e ricarica la pagina.
+  </div>
+
+  <section id="sez-confronto">
+    <h2>Confronto andamento (base 100 a inizio periodo)</h2>
+    <div class="card">
+      <div class="toolbar">
+        <div class="chips" id="chips" style="margin-bottom:0"></div>
+        <div class="periodi" id="periodi"></div>
+      </div>
+      <div class="chartbox"><canvas id="chart-nav"></canvas></div>
+    </div>
+  </section>
+
+  <section id="sez-portafoglio">
+    <h2>Controvalore del portafoglio vs versato</h2>
+    <div class="card">
+      <div class="chartbox small"><canvas id="chart-ptf"></canvas></div>
+    </div>
+  </section>
+
+  <section id="sez-tabella">
+    <h2>Dettaglio per fondo</h2>
+    <div class="card" style="overflow-x:auto">
+      <table id="tabella">
+        <thead>
+          <tr>
+            <th>Fondo</th><th>Versato</th><th>Quote stimate</th>
+            <th>Ultimo NAV</th><th>Controvalore</th><th>Var. €/%</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Valori stimati a partire dai NAV pubblici (Morningstar) e dai versamenti inseriti in
+  <span class="mono">data/versamenti.csv</span>. Le quote sono calcolate al NAV del primo giorno
+  di valorizzazione successivo al versamento e non tengono conto di commissioni di sottoscrizione
+  o gestione applicate da Banca Mediolanum: per il controvalore ufficiale fa fede l'app/estratto
+  Mediolanum. I NAV sono valorizzati una volta al giorno: non esiste una quotazione intraday
+  per questi fondi.
+</footer>
+
+<script>
+const FONDI = {
+  "IE0004460683": { nome:"Challenge Energy Opportunities",      breve:"Energy",      col:getCss('--energy') },
+  "IE0004488262": { nome:"Challenge Financial Opportunities",   breve:"Financial",   col:getCss('--financial') },
+  "IE0004479642": { nome:"Challenge Healthcare Opportunities",  breve:"Healthcare",  col:getCss('--healthcare') },
+  "IE0004462408": { nome:"Challenge Industrials & Materials",   breve:"Industrials", col:getCss('--industrials') },
+  "IE0004621052": { nome:"Challenge Technology Opportunities",  breve:"Technology",  col:getCss('--technology') },
+};
+const PERIODI = [ ["1M",30], ["3M",91], ["6M",182], ["1A",365], ["Max",Infinity] ];
+
+let serie = {};        // isin -> [{d:"YYYY-MM-DD", v:nav}, ...] ordinate
+let versamenti = [];   // [{d, isin, imp}]
+let visibili = new Set(Object.keys(FONDI));
+let periodo = 182;
+let chartNav = null, chartPtf = null;
+
+const eur = new Intl.NumberFormat("it-IT",{style:"currency",currency:"EUR"});
+const num = new Intl.NumberFormat("it-IT",{minimumFractionDigits:3,maximumFractionDigits:3});
+const pct = v => (v>=0?"+":"") + new Intl.NumberFormat("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2}).format(v) + " %";
+const eurS = v => (v>=0?"+":"−") + eur.format(Math.abs(v));
+
+function getCss(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+async function loadCsv(path){
+  const r = await fetch(path + "?t=" + Date.now());
+  if(!r.ok) return [];
+  const righe = (await r.text()).trim().split(/\r?\n/);
+  const head = righe.shift().split(",");
+  return righe.filter(l=>l.trim()).map(l=>{
+    const c = l.split(",");
+    return Object.fromEntries(head.map((h,i)=>[h.trim(), (c[i]||"").trim()]));
+  });
+}
+
+// NAV alla prima data >= d (per stimare le quote acquistate)
+function navDaData(isin, d){
+  const s = serie[isin] || [];
+  for(const p of s) if(p.d >= d) return p.v;
+  return s.length ? s[s.length-1].v : null;
+}
+// ultimo NAV noto alla data d (per valorizzare il portafoglio nel tempo)
+function navFinoA(isin, d){
+  const s = serie[isin] || [];
+  let out = null;
+  for(const p of s){ if(p.d <= d) out = p.v; else break; }
+  return out;
+}
+
+function calcolaFondi(){
+  const out = {};
+  for(const isin of Object.keys(FONDI)){
+    const vs = versamenti.filter(v=>v.isin===isin);
+    let quote = 0, versato = 0;
+    for(const v of vs){
+      versato += v.imp;
+      const nav = navDaData(isin, v.d);
+      if(nav) quote += v.imp / nav;
+    }
+    const s = serie[isin] || [];
+    const last = s.length ? s[s.length-1] : null;
+    const ctv = last ? quote * last.v : null;
+    out[isin] = { versato, quote, last, ctv,
+      varE: ctv!=null ? ctv - versato : null,
+      varP: ctv!=null && versato>0 ? (ctv/versato - 1)*100 : null };
+  }
+  return out;
+}
+
+function disegnaTotali(f){
+  let vers=0, ctv=0, ok=false, lastD="";
+  for(const isin in f){
+    vers += f[isin].versato;
+    if(f[isin].ctv!=null){ ctv += f[isin].ctv; ok=true; }
+    if(f[isin].last && f[isin].last.d > lastD) lastD = f[isin].last.d;
+  }
+  document.getElementById("t-vers").textContent = eur.format(vers);
+  if(ok){
+    const varE = ctv - vers, varP = vers>0 ? (ctv/vers-1)*100 : 0;
+    const el = document.getElementById("t-var");
+    document.getElementById("t-ctv").textContent = eur.format(ctv);
+    el.textContent = eurS(varE) + "  ·  " + pct(varP);
+    el.className = "val " + (varE>=0 ? "pos" : "neg");
+    document.getElementById("t-data").textContent = new Date(lastD).toLocaleDateString("it-IT");
+  }
+}
+
+function disegnaTabella(f){
+  const tb = document.querySelector("#tabella tbody");
+  tb.innerHTML = "";
+  let tv=0, tc=0;
+  for(const isin of Object.keys(FONDI)){
+    const d = f[isin], meta = FONDI[isin];
+    tv += d.versato; tc += d.ctv||0;
+    const su = (d.varE||0) >= 0;
+    tb.insertAdjacentHTML("beforeend", `
+      <tr>
+        <td><span class="fname"><span class="dot" style="background:${meta.col}"></span>
+          <span>${meta.nome}<small>${isin}</small></span></span></td>
+        <td class="mono">${eur.format(d.versato)}</td>
+        <td class="mono">${d.quote?num.format(d.quote):"—"}</td>
+        <td class="mono">${d.last?eur.format(d.last.v):"—"}</td>
+        <td class="mono">${d.ctv!=null?eur.format(d.ctv):"—"}</td>
+        <td class="mono"><span class="var ${su?"up":"down"}">${d.varE!=null?eurS(d.varE):"—"}<br>${d.varP!=null?pct(d.varP):""}</span></td>
+      </tr>`);
+  }
+  const su = tc-tv >= 0;
+  tb.insertAdjacentHTML("beforeend", `
+    <tr class="tot">
+      <td>Totale</td><td class="mono">${eur.format(tv)}</td><td></td><td></td>
+      <td class="mono">${eur.format(tc)}</td>
+      <td class="mono"><span class="var ${su?"up":"down"}">${eurS(tc-tv)}<br>${tv>0?pct((tc/tv-1)*100):""}</span></td>
+    </tr>`);
+}
+
+function datiConfronto(){
+  const oggi = new Date();
+  const min = periodo===Infinity ? "0000" :
+    new Date(oggi - periodo*864e5).toISOString().slice(0,10);
+  const datasets = [];
+  let labels = [];
+  for(const isin of Object.keys(FONDI)){
+    if(!visibili.has(isin)) continue;
+    const s = (serie[isin]||[]).filter(p=>p.d>=min);
+    if(!s.length) continue;
+    const base = s[0].v;
+    if(s.length > labels.length) labels = s.map(p=>p.d);
+    datasets.push({
+      label: FONDI[isin].breve,
+      data: s.map(p=>({x:p.d, y:+(p.v/base*100).toFixed(2)})),
+      borderColor: FONDI[isin].col, backgroundColor: FONDI[isin].col,
+      borderWidth: 2, pointRadius: 0, pointHitRadius: 8, tension: .15,
+    });
+  }
+  return { labels, datasets };
+}
+
+function disegnaChartNav(){
+  const { labels, datasets } = datiConfronto();
+  const cfg = {
+    type:"line",
+    data:{ labels, datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:"nearest", axis:"x", intersect:false },
+      parsing:{ xAxisKey:"x", yAxisKey:"y" },
+      scales:{
+        x:{ type:"category", grid:{display:false},
+            ticks:{ maxTicksLimit:8, maxRotation:0,
+              callback:function(v){ const d=this.getLabelForValue(v);
+                return new Date(d).toLocaleDateString("it-IT",{day:"2-digit",month:"short"}); } } },
+        y:{ grid:{color:"#EDF0F2"}, ticks:{ callback:v=>v } }
+      },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{
+          title: items=> new Date(items[0].label).toLocaleDateString("it-IT"),
+          label: c=> ` ${c.dataset.label}: ${c.parsed.y}` } }
+      }
+    }
+  };
+  if(chartNav){ chartNav.data = cfg.data; chartNav.update(); }
+  else chartNav = new Chart(document.getElementById("chart-nav"), cfg);
+}
+
+function disegnaChartPtf(){
+  if(!versamenti.length) return;
+  const prima = versamenti.map(v=>v.d).sort()[0];
+  // date = unione delle date NAV dal primo versamento in poi
+  const dateSet = new Set();
+  for(const isin in serie) for(const p of serie[isin]) if(p.d>=prima) dateSet.add(p.d);
+  const date = [...dateSet].sort();
+  const valore = [], versato = [];
+  for(const d of date){
+    let v=0, ve=0;
+    for(const isin of Object.keys(FONDI)){
+      let q=0;
+      for(const vs of versamenti){
+        if(vs.isin!==isin || vs.d>d) continue;
+        ve += vs.imp;
+        const nav = navDaData(isin, vs.d);
+        if(nav) q += vs.imp/nav;
+      }
+      const navOggi = navFinoA(isin, d);
+      if(navOggi) v += q*navOggi;
+    }
+    valore.push(+v.toFixed(2)); versato.push(+ve.toFixed(2));
+  }
+  const cfg = {
+    type:"line",
+    data:{ labels:date, datasets:[
+      { label:"Controvalore", data:valore, borderColor:getCss('--ink'),
+        backgroundColor:"rgba(14,42,71,.08)", fill:true, borderWidth:2, pointRadius:0, tension:.15 },
+      { label:"Versato", data:versato, borderColor:getCss('--muted'),
+        borderDash:[5,4], borderWidth:1.5, pointRadius:0, stepped:true },
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:"index", intersect:false },
+      scales:{
+        x:{ grid:{display:false}, ticks:{ maxTicksLimit:8, maxRotation:0,
+          callback:function(v){ return new Date(this.getLabelForValue(v))
+            .toLocaleDateString("it-IT",{day:"2-digit",month:"short"}); } } },
+        y:{ grid:{color:"#EDF0F2"}, ticks:{ callback:v=>eur.format(v) } }
+      },
+      plugins:{ legend:{ position:"bottom", labels:{boxWidth:14,boxHeight:2} },
+        tooltip:{ callbacks:{
+          title: it=> new Date(it[0].label).toLocaleDateString("it-IT"),
+          label: c=> ` ${c.dataset.label}: ${eur.format(c.parsed.y)}` } } }
+    }
+  };
+  if(chartPtf){ chartPtf.data = cfg.data; chartPtf.update(); }
+  else chartPtf = new Chart(document.getElementById("chart-ptf"), cfg);
+}
+
+function costruisciControlli(){
+  const chips = document.getElementById("chips");
+  for(const isin of Object.keys(FONDI)){
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.innerHTML = `<span class="dot" style="background:${FONDI[isin].col}"></span>${FONDI[isin].breve}`;
+    b.onclick = ()=>{
+      visibili.has(isin) && visibili.size>1 ? visibili.delete(isin) : visibili.add(isin);
+      b.classList.toggle("off", !visibili.has(isin));
+      disegnaChartNav();
+    };
+    chips.appendChild(b);
+  }
+  const per = document.getElementById("periodi");
+  for(const [lbl,gg] of PERIODI){
+    const b = document.createElement("button");
+    b.textContent = lbl;
+    if(gg===periodo) b.classList.add("att");
+    b.onclick = ()=>{
+      periodo = gg;
+      per.querySelectorAll("button").forEach(x=>x.classList.remove("att"));
+      b.classList.add("att");
+      disegnaChartNav();
+    };
+    per.appendChild(b);
+  }
+}
+
+async function init(){
+  const box = document.getElementById("avviso-vuoto");
+  const nascondi = ()=> ["sez-confronto","sez-portafoglio","sez-tabella"]
+    .forEach(id=> document.getElementById(id).style.display="none");
+
+  if(location.protocol === "file:"){
+    box.innerHTML = "<strong>La pagina è stata aperta con doppio click sul file.</strong> " +
+      "Così il browser blocca la lettura dei CSV. Apri il prompt dei comandi nella cartella " +
+      "del progetto, lancia <span class='mono'>python -m http.server</span> e vai su " +
+      "<span class='mono'>http://localhost:8000</span>.";
+    box.style.display = "block"; nascondi(); return;
+  }
+  try{
+    const [navRows, versRows] = await Promise.all([
+      loadCsv("data/nav_history.csv"), loadCsv("data/versamenti.csv")
+    ]);
+    for(const r of navRows){
+      if(!serie[r.isin]) serie[r.isin] = [];
+      serie[r.isin].push({ d:r.date, v:parseFloat(r.nav) });
+    }
+    for(const isin in serie) serie[isin].sort((a,b)=>a.d<b.d?-1:1);
+    versamenti = versRows.map(r=>({ d:r.data, isin:r.isin, imp:parseFloat(r.importo) }))
+                         .filter(v=>v.isin && !isNaN(v.imp));
+
+    if(!navRows.length){
+      box.style.display = "block"; nascondi(); return;
+    }
+    if(typeof Chart === "undefined")
+      throw new Error("Chart.js non caricato: la rete blocca cdn.jsdelivr.net?");
+    costruisciControlli();
+    const f = calcolaFondi();
+    disegnaTotali(f);
+    disegnaTabella(f);
+    disegnaChartNav();
+    disegnaChartPtf();
+  }catch(err){
+    box.innerHTML = "<strong>Errore durante il caricamento:</strong> " +
+      "<span class='mono'>" + String(err) + "</span><br>" +
+      "Verifica di aver lanciato <span class='mono'>python -m http.server</span> nella " +
+      "cartella che contiene <span class='mono'>index.html</span> e la sottocartella " +
+      "<span class='mono'>data</span>.";
+    box.style.display = "block"; nascondi();
+  }
+}
+init();
+</script>
+</body>
+</html>
