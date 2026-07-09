@@ -142,6 +142,13 @@
     </div>
   </section>
 
+  <section id="sez-gain">
+    <h2>Guadagno / perdita in € (controvalore − versato)</h2>
+    <div class="card">
+      <div class="chartbox small"><canvas id="chart-gain"></canvas></div>
+    </div>
+  </section>
+
   <section id="sez-tabella">
     <h2>Dettaglio per fondo</h2>
     <div class="card" style="overflow-x:auto">
@@ -184,7 +191,7 @@ let versamenti = [];   // [{d, isin, imp}]
 let visibili = new Set(Object.keys(FONDI));
 let mostraMedia = true;
 let periodo = 182;
-let chartNav = null, chartPtf = null;
+let chartNav = null, chartPtf = null, chartGain = null;
 
 const eur = new Intl.NumberFormat("it-IT",{style:"currency",currency:"EUR"});
 const num = new Intl.NumberFormat("it-IT",{minimumFractionDigits:3,maximumFractionDigits:3});
@@ -409,6 +416,38 @@ function disegnaChartPtf(){
   };
   if(chartPtf){ chartPtf.data = cfg.data; chartPtf.update(); }
   else chartPtf = new Chart(document.getElementById("chart-ptf"), cfg);
+
+  // ---- grafico guadagno/perdita in € ----
+  const diff = valore.map((v,i)=> +(v - versato[i]).toFixed(2));
+  const cGain = getCss('--gain'), cLoss = getCss('--loss');
+  const cfgG = {
+    type:"line",
+    data:{ labels:date, datasets:[{
+      label:"Guadagno/perdita",
+      data: diff,
+      borderWidth: 2, pointRadius: 0, pointHitRadius: 8, tension:.15,
+      borderColor: cGain,
+      segment:{ borderColor: ctx => (ctx.p0.parsed.y + ctx.p1.parsed.y)/2 >= 0 ? cGain : cLoss },
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:"index", intersect:false },
+      scales:{
+        x:{ grid:{display:false}, ticks:{ maxTicksLimit:8, maxRotation:0,
+          callback:function(v){ return new Date(this.getLabelForValue(v))
+            .toLocaleDateString("it-IT",{day:"2-digit",month:"short"}); } } },
+        y:{ grid:{ color: ctx => ctx.tick.value === 0 ? "#9AA5B1" : "#EDF0F2",
+                   lineWidth: ctx => ctx.tick.value === 0 ? 2 : 1 },
+            ticks:{ callback:v=>eurS(v) } }
+      },
+      plugins:{ legend:{ display:false },
+        tooltip:{ callbacks:{
+          title: it=> new Date(it[0].label).toLocaleDateString("it-IT"),
+          label: c=> ` ${eurS(c.parsed.y)}` } } }
+    }
+  };
+  if(chartGain){ chartGain.data = cfgG.data; chartGain.update(); }
+  else chartGain = new Chart(document.getElementById("chart-gain"), cfgG);
 }
 
 function costruisciControlli(){
@@ -451,7 +490,7 @@ function costruisciControlli(){
 
 async function init(){
   const box = document.getElementById("avviso-vuoto");
-  const nascondi = ()=> ["sez-confronto","sez-portafoglio","sez-tabella"]
+  const nascondi = ()=> ["sez-confronto","sez-portafoglio","sez-gain","sez-tabella"]
     .forEach(id=> document.getElementById(id).style.display="none");
 
   if(location.protocol === "file:"){
