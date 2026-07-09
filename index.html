@@ -182,6 +182,7 @@ const PERIODI = [ ["1M",30], ["3M",91], ["6M",182], ["1A",365], ["Max",Infinity]
 let serie = {};        // isin -> [{d:"YYYY-MM-DD", v:nav}, ...] ordinate
 let versamenti = [];   // [{d, isin, imp}]
 let visibili = new Set(Object.keys(FONDI));
+let mostraMedia = true;
 let periodo = 182;
 let chartNav = null, chartPtf = null;
 
@@ -289,18 +290,41 @@ function datiConfronto(){
   const min = periodo===Infinity ? "0000" :
     new Date(oggi - periodo*864e5).toISOString().slice(0,10);
   const datasets = [];
-  let labels = [];
+  const perData = new Map();   // data -> [valori base100 dei 5 fondi]
+
   for(const isin of Object.keys(FONDI)){
-    if(!visibili.has(isin)) continue;
     const s = (serie[isin]||[]).filter(p=>p.d>=min);
     if(!s.length) continue;
     const base = s[0].v;
-    if(s.length > labels.length) labels = s.map(p=>p.d);
+    for(const p of s){
+      if(!perData.has(p.d)) perData.set(p.d, []);
+      perData.get(p.d).push(p.v/base*100);
+    }
+    if(!visibili.has(isin)) continue;
     datasets.push({
       label: FONDI[isin].breve,
       data: s.map(p=>({x:p.d, y:+(p.v/base*100).toFixed(2)})),
       borderColor: FONDI[isin].col, backgroundColor: FONDI[isin].col,
       borderWidth: 2, pointRadius: 0, pointHitRadius: 8, tension: .15,
+    });
+  }
+
+  const labels = [...perData.keys()].sort();
+  const nFondi = Object.keys(FONDI).length;
+
+  if(mostraMedia){
+    const mediaData = labels
+      .filter(d => perData.get(d).length === nFondi)   // solo giorni con tutti i NAV
+      .map(d => {
+        const v = perData.get(d);
+        return { x:d, y:+(v.reduce((a,b)=>a+b,0)/v.length).toFixed(2) };
+      });
+    datasets.push({
+      label: "Media 5 fondi",
+      data: mediaData,
+      borderColor: getCss('--ink'), backgroundColor: getCss('--ink'),
+      borderWidth: 2.5, borderDash: [6,4],
+      pointRadius: 0, pointHitRadius: 8, tension: .15,
     });
   }
   return { labels, datasets };
@@ -318,8 +342,10 @@ function disegnaChartNav(){
       scales:{
         x:{ type:"category", grid:{display:false},
             ticks:{ maxTicksLimit:8, maxRotation:0,
-              callback:function(v){ const d=this.getLabelForValue(v);
-                return new Date(d).toLocaleDateString("it-IT",{day:"2-digit",month:"short"}); } } },
+              callback:function(v){ const d=new Date(this.getLabelForValue(v));
+                return periodo>=365
+                  ? d.toLocaleDateString("it-IT",{month:"short",year:"numeric"})
+                  : d.toLocaleDateString("it-IT",{day:"2-digit",month:"short"}); } } },
         y:{ grid:{color:"#EDF0F2"}, ticks:{ callback:v=>v } }
       },
       plugins:{
@@ -398,6 +424,16 @@ function costruisciControlli(){
     };
     chips.appendChild(b);
   }
+  const bm = document.createElement("button");
+  bm.className = "chip";
+  bm.style.borderStyle = "dashed";
+  bm.innerHTML = `<span class="dot" style="background:${getCss('--ink')}"></span>Media 5 fondi`;
+  bm.onclick = ()=>{
+    mostraMedia = !mostraMedia;
+    bm.classList.toggle("off", !mostraMedia);
+    disegnaChartNav();
+  };
+  chips.appendChild(bm);
   const per = document.getElementById("periodi");
   for(const [lbl,gg] of PERIODI){
     const b = document.createElement("button");
